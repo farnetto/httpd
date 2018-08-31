@@ -12,17 +12,10 @@ public class DirectoryList
 {
     private static final Logger LOGGER = Logger.getLogger(DirectoryList.class.getName());
 
-    private final String docroot = ".";
-
-    public String list(String dir)
+    public String list(File dir)
     {
         LOGGER.log(Level.FINE, "listing " + dir);
-        File f = new File(docroot, dir);
-        if (f.isDirectory())
-        {
-            return generatePage(dir, f.list());
-        }
-        return "nixda";
+        return generatePage(dir.getName(), dir.list());
     }
 
     private String generatePage(String dir, String[] files)

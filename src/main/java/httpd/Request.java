@@ -27,6 +27,7 @@ public class Request
         {
             System.out.println("line: " + line);
         }
+        System.out.println("text: " + text);
         String[] cmd = text.get(0).split("\\s");
         method = Method.valueOf(cmd[0]);
         resource = cmd[1];

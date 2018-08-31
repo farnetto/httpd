@@ -24,9 +24,21 @@ public class Server
         }
     }
 
+    private final String docroot;
+
+    /**
+     * constructor
+     * 
+     * @param docroot document root directory
+     */
+    public Server(String docroot)
+    {
+        this.docroot = docroot;
+    }
+
     public static void main(String[] args)
     {
-        new Server().start();
+        new Server(".").start();
     }
 
     public void start()
@@ -38,7 +50,7 @@ public class Server
             {
                 try
                 {
-                    new Thread(new Worker(ss.accept())).start();
+                    new Thread(new Worker(docroot, ss.accept())).start();
                 }
                 catch (IOException e)
                 {

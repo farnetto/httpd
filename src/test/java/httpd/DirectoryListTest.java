@@ -1,5 +1,9 @@
 package httpd;
 
+import static org.junit.Assert.assertTrue;
+
+import java.io.File;
+
 import org.junit.Test;
 
 public class DirectoryListTest
@@ -7,7 +11,10 @@ public class DirectoryListTest
     @Test
     public void simple()
     {
-        String s = new DirectoryList().list("/foo/bar");
-        System.out.println(s);
+        File dir = new File("target");
+        assertTrue(dir.exists());
+        assertTrue(dir.isDirectory());
+        String s = new DirectoryList().list(dir);
+        assertTrue("unexpected content: " + s, s.contains("<html>"));
     }
 }
