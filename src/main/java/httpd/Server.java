@@ -17,7 +17,7 @@ public class Server
     {
         try
         {
-            logManager.readConfiguration(Thread.currentThread().getContextClassLoader().getResourceAsStream("logging.properties"));
+            logManager.readConfiguration(Thread.currentThread().getContextClassLoader().getResourceAsStream("httpd/logging.properties"));
         }
         catch (IOException exception)
         {

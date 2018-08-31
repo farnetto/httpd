@@ -11,16 +11,20 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import httpd.Request.Method;
+
 public class Worker implements Runnable
 {
     private static final Logger LOGGER = Logger.getLogger(Worker.class.getName());
 
-    private static final String CRLF = "\r\n";
+    public static final String CRLF = "\r\n";
 
     private final File docroot;
 
@@ -83,13 +87,13 @@ public class Worker implements Runnable
         LOGGER.log(Level.FINE, "returning " + httpError);
 
         StringBuilder html = new StringBuilder();
-        html.append("<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">");
-        html.append("<html><head>");
-        html.append("<title>404 Not Found</title>");
-        html.append("</head><body>");
-        html.append("<h1>Not Found</h1>");
-        html.append(String.format("<p>The requested URL %s was not found on this server.</p>", httpError.getContent()));
-        html.append("</body></html>");
+        html.append("<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">").append(CRLF);
+        html.append("<html><head>").append(CRLF);
+        html.append(String.format("<title>%s %s</title>", httpError.getCode().getId(), httpError.getCode().getDescription())).append(CRLF);
+        html.append("</head><body>").append(CRLF);
+        html.append("<h1>Not Found</h1>").append(CRLF);
+        html.append(String.format("<p>The requested URL %s was not found on this server.</p>", httpError.getContent())).append(CRLF);
+        html.append("</body></html>").append(CRLF);
 
         StringBuilder response = new StringBuilder();
         response.append("HTTP/1.1 " + httpError.getCode().getId() + " " + httpError.getCode().getDescription() + CRLF);
@@ -140,28 +144,49 @@ public class Worker implements Runnable
     private void writeResponse(Request req, BufferedWriter out) throws IOException, HttpError
     {
         LOGGER.log(Level.FINE, "getting " + req.getResource());
+
+        if (req.getMethod() != Method.GET && req.getMethod() != Method.HEAD)
+        {
+            throw new HttpError(StatusCode.NOT_IMPLEMENTED);
+        }
+
+        // exists?
         File f = new File(docroot, req.getResource());
         if (!f.exists())
         {
             throw new HttpError(StatusCode.NOT_FOUND, req.getResource());
         }
-        char[] content = null;
+
+        // determine content type
         String contentType = "";
         if (f.isDirectory())
         {
-            content = new DirectoryList().list(docroot, req.getResource()).toCharArray();
             contentType = "text/html; charset=UTF-8";
         }
         else
         {
-            // TODO handle large files
-            content = new char[(int) f.length()];
-            new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(content, 0, (int) f.length());
             contentType = getContentType(f);
         }
-        // everything ok, write response now
+
+        // retrieve content
+        char[] content = null;
+        if (req.getMethod() == Method.GET)
+        {
+            if (f.isDirectory())
+            {
+                content = new DirectoryList().list(docroot, req.getResource()).toCharArray();
+            }
+            else
+            {
+                // TODO handle large files
+                content = new char[(int) f.length()];
+                new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(content, 0, (int) f.length());
+            }
+        }
+
+        // everything ok, write response
         out.write("HTTP/1.1 200 OK" + CRLF);
-        out.write("Date: " + LocalDateTime.now() + CRLF); // Tue, 28 Aug 2018 11:48:17 GMT
+        out.write("Date: " + now() + CRLF);
         out.write("Server: Farnetto " + CRLF);
         // out.write("Last-Modified: Wed, 01 Apr 2015 10:26:11 GMT\n");
         // out.write("ETag: \"3ab-512a724ea7e20\"\n");
@@ -171,7 +196,10 @@ public class Worker implements Runnable
         out.write("Vary: Accept-Encoding" + CRLF);
         out.write("Content-Type: " + contentType + CRLF);
         out.write(CRLF);
-        out.write(content);
+        if (req.getMethod() == Method.GET)
+        {
+            out.write(content);
+        }
     }
 
     /**
@@ -208,4 +236,8 @@ public class Worker implements Runnable
         return "application/octet-stream";
     }
 
+    private String now()
+    {
+        return DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now());
+    }
 }
