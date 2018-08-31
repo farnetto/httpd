@@ -1,5 +1,6 @@
 package httpd;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.logging.Level;
@@ -24,16 +25,20 @@ public class Server
         }
     }
 
-    private final String docroot;
+    private final File docroot;
 
     /**
      * constructor
      * 
      * @param docroot document root directory
      */
-    public Server(String docroot)
+    public Server(String docrootName)
     {
-        this.docroot = docroot;
+        this.docroot = new File(docrootName);
+        if (!docroot.exists() || !docroot.isDirectory())
+        {
+            throw new RuntimeException("docroot does not exist or is not a directory: " + docrootName);
+        }
     }
 
     public static void main(String[] args)

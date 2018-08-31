@@ -11,10 +11,11 @@ public class DirectoryListTest
     @Test
     public void simple()
     {
-        File dir = new File("target");
+        String fName = "target";
+        File dir = new File(fName);
         assertTrue(dir.exists());
         assertTrue(dir.isDirectory());
-        String s = new DirectoryList().list(dir);
+        String s = new DirectoryList().list(new File("."), fName);
         assertTrue("unexpected content: " + s, s.contains("<html>"));
     }
 }

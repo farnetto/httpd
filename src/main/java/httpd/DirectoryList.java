@@ -12,30 +12,25 @@ public class DirectoryList
 {
     private static final Logger LOGGER = Logger.getLogger(DirectoryList.class.getName());
 
-    public String list(File dir)
+    public String list(File docroot, String dirName)
     {
-        LOGGER.log(Level.FINE, "listing " + dir);
-        return generatePage(dir.getName(), dir.list());
-    }
-
-    private String generatePage(String dir, String[] files)
-    {
+        File dir = new File(docroot, dirName);
         StringBuilder sb = new StringBuilder();
         sb.append("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 3.2 Final//EN\">\r\n");
         sb.append("<html>\r\n");
         sb.append(" <head>\r\n");
-        sb.append(String.format("  <title>Index of %s</title>\r\n", dir));
+        sb.append(String.format("  <title>Index of %s</title>\r\n", dirName));
         sb.append(" </head>\r\n");
         sb.append(" <body>\r\n");
-        sb.append(String.format("<h1>Index of %s</h1>\r\n", dir));
+        sb.append(String.format("<h1>Index of %s</h1>\r\n", dirName));
         sb.append("<ul>\r\n");
-        if (parentExists(dir))
+        if (parentExists(dirName))
         {
-            sb.append(String.format("<li><a href=\"%s\"> Parent Directory</a></li>\r\n", getParent(dir)));
+            sb.append(String.format("<li><a href=\"%s\"> Parent Directory</a></li>\r\n", getParent(dirName)));
         }
-        for (String f : files)
+        for (String f : dir.list())
         {
-            sb.append(String.format("<li><a href=\"%s\"> %s</a></li>\r\n", join(dir, f), f));
+            sb.append(String.format("<li><a href=\"%s\"> %s</a></li>\r\n", join(dirName, f), f));
         }
         sb.append("</ul>\r\n");
         sb.append("</body></html>\r\n");
@@ -99,11 +94,11 @@ public class DirectoryList
 
     /**
      * @param dir
-     * @return
+     * @return true if dir is not docroot
      */
     private boolean parentExists(String dir)
     {
         LOGGER.log(Level.FINE, "checking for parent of " + dir);
-        return !dir.equals("/");
+        return !"/".equals(dir);
     }
 }

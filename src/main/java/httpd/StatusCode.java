@@ -2,7 +2,7 @@ package httpd;
 
 public enum StatusCode
 {
-    NOT_FOUND(404, "Not Found");
+    NOT_FOUND(404, "Not Found"), BAD_REQUEST(400, "Bad Request");
 
     private final int id;
 

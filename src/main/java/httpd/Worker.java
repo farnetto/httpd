@@ -3,11 +3,13 @@ package httpd;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,11 +22,11 @@ public class Worker implements Runnable
 
     private static final String CRLF = "\r\n";
 
-    private final String docroot;
+    private final File docroot;
 
     private final Socket s;
 
-    public Worker(String docroot, Socket s)
+    public Worker(File docroot, Socket s)
     {
         this.docroot = docroot;
         this.s = s;
@@ -107,8 +109,9 @@ public class Worker implements Runnable
      * @param in
      * @return
      * @throws IOException
+     * @throws HttpError
      */
-    private Request readRequest(BufferedReader in) throws IOException
+    private Request readRequest(BufferedReader in) throws IOException, HttpError
     {
         List<String> lines = new ArrayList<>();
         String line = null;
@@ -136,18 +139,26 @@ public class Worker implements Runnable
      */
     private void writeResponse(Request req, BufferedWriter out) throws IOException, HttpError
     {
+        LOGGER.log(Level.FINE, "getting " + req.getResource());
         File f = new File(docroot, req.getResource());
-        LOGGER.log(Level.FINE, "getting " + f);
         if (!f.exists())
         {
             throw new HttpError(StatusCode.NOT_FOUND, req.getResource());
         }
-        String content = "nixda";
+        char[] content = null;
+        String contentType = "";
         if (f.isDirectory())
         {
-            content = new DirectoryList().list(f);
+            content = new DirectoryList().list(docroot, req.getResource()).toCharArray();
+            contentType = "text/html; charset=UTF-8";
         }
-
+        else
+        {
+            // TODO handle large files
+            content = new char[(int) f.length()];
+            new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(content, 0, (int) f.length());
+            contentType = getContentType(f);
+        }
         // everything ok, write response now
         out.write("HTTP/1.1 200 OK" + CRLF);
         out.write("Date: " + LocalDateTime.now() + CRLF); // Tue, 28 Aug 2018 11:48:17 GMT
@@ -156,11 +167,45 @@ public class Worker implements Runnable
         // out.write("ETag: \"3ab-512a724ea7e20\"\n");
         out.write("Accept-Ranges: bytes" + CRLF);
         out.write("Connection: close" + CRLF);
-        out.write(String.format("Content-Length: %d" + CRLF, content.length()));
+        out.write(String.format("Content-Length: %d" + CRLF, content.length));
         out.write("Vary: Accept-Encoding" + CRLF);
-        out.write("Content-Type: text/html; charset=UTF-8" + CRLF);
+        out.write("Content-Type: " + contentType + CRLF);
         out.write(CRLF);
         out.write(content);
+    }
+
+    /**
+     * https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Complete_list_of_MIME_types
+     * 
+     * TODO guess encoding for text files
+     */
+    private String getContentType(File file) throws IOException
+    {
+
+        String name = file.getName().toLowerCase();
+        String ct = Files.probeContentType(file.toPath());
+        if (LOGGER.isLoggable(Level.FINE))
+        {
+            LOGGER.log(Level.FINE, String.format("name=%s type=%s", name, ct));
+        }
+
+        if (ct != null)
+        {
+            return ct;
+        }
+        if (name.endsWith(".xml"))
+        {
+            return "text/xml; charset=ISO-8859-1";
+        }
+        if (name.endsWith(".java"))
+        {
+            return "text/plain; charset=UTF-8";
+        }
+        if (name.endsWith(".jar"))
+        {
+            return "application/x-java-archive";
+        }
+        return "application/octet-stream";
     }
 
 }

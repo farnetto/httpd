@@ -1,9 +1,13 @@
 package httpd;
 
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Request
 {
+    private static final Logger LOGGER = Logger.getLogger(Request.class.getName());
+
     enum Method
     {
         GET, POST, HEAD
@@ -15,22 +19,29 @@ public class Request
 
     private String resource;
 
-    public Request(List<String> lines)
+    private String httpVersion;
+
+    public Request(List<String> lines) throws HttpError
     {
         this.text = lines;
         parse();
     }
 
-    private void parse()
+    private void parse() throws HttpError
     {
         for (String line : text)
         {
-            System.out.println("line: " + line);
+            LOGGER.log(Level.FINER, "    " + line);
         }
-        System.out.println("text: " + text);
-        String[] cmd = text.get(0).split("\\s");
-        method = Method.valueOf(cmd[0]);
-        resource = cmd[1];
+        String requestLine = text.get(0);
+        String[] requestLineTokens = requestLine.split("\\s");
+        if (requestLineTokens.length != 3)
+        {
+            throw new HttpError(StatusCode.BAD_REQUEST);
+        }
+        method = Method.valueOf(requestLineTokens[0]);
+        resource = requestLineTokens[1];
+        httpVersion = requestLineTokens[2];
     }
 
     public Method getMethod()
