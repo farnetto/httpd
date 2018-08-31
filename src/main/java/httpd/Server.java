@@ -59,7 +59,7 @@ public class Server
             {
                 try
                 {
-                    new Thread(new Worker(docroot, ss.accept())).start();
+                    new Thread(new Worker(docroot, eTags, ss.accept())).start();
                 }
                 catch (IOException e)
                 {

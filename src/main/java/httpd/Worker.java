@@ -11,10 +11,13 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -30,10 +33,13 @@ public class Worker implements Runnable
 
     private final Socket s;
 
-    public Worker(File docroot, Socket s)
+    private final Map<String,String> eTags;
+
+    public Worker(File docroot, Map<String,String> eTags, Socket s)
     {
         this.docroot = docroot;
         this.s = s;
+        this.eTags = eTags;
     }
 
     @Override
@@ -143,7 +149,9 @@ public class Worker implements Runnable
      */
     private void writeResponse(Request req, BufferedWriter out) throws IOException, HttpError
     {
-        LOGGER.log(Level.FINE, "getting " + req.getResource());
+        String resource = req.getResource();
+
+        LOGGER.log(Level.FINE, "getting " + resource);
 
         if (req.getMethod() != Method.GET && req.getMethod() != Method.HEAD)
         {
@@ -151,10 +159,10 @@ public class Worker implements Runnable
         }
 
         // exists?
-        File f = new File(docroot, req.getResource());
+        File f = new File(docroot, resource);
         if (!f.exists())
         {
-            throw new HttpError(StatusCode.NOT_FOUND, req.getResource());
+            throw new HttpError(StatusCode.NOT_FOUND, resource);
         }
 
         // determine content type
@@ -176,7 +184,7 @@ public class Worker implements Runnable
         {
             if (f.isDirectory())
             {
-                content = new DirectoryList().list(docroot, req.getResource()).toCharArray();
+                content = new DirectoryList().list(docroot, resource).toCharArray();
             }
             else
             {
@@ -190,8 +198,8 @@ public class Worker implements Runnable
         out.write("HTTP/1.1 200 OK" + CRLF);
         out.write("Date: " + now() + CRLF);
         out.write("Server: Farnetto " + CRLF);
-        // out.write("Last-Modified: Wed, 01 Apr 2015 10:26:11 GMT\n");
-        // out.write("ETag: \"3ab-512a724ea7e20\"\n");
+        out.write("Last-Modified: " + getLastModified(f) + CRLF);
+        out.write(String.format("ETag: \"%s\"" + CRLF, getETag(f, resource)));
         out.write("Accept-Ranges: bytes" + CRLF);
         out.write("Connection: close" + CRLF);
         out.write(String.format("Content-Length: %d" + CRLF, contentLength));
@@ -202,6 +210,15 @@ public class Worker implements Runnable
         {
             out.write(content);
         }
+    }
+
+    /**
+     * @param f
+     * @return
+     */
+    private String getLastModified(File f)
+    {
+        return DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.ofInstant(new Date(f.lastModified()).toInstant(), ZoneId.of("GMT")));
     }
 
     /**
@@ -240,6 +257,19 @@ public class Worker implements Runnable
 
     private String now()
     {
-        return DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now());
+        return DateTimeFormatter.RFC_1123_DATE_TIME.format(ZonedDateTime.now(ZoneId.of("GMT")));
+    }
+
+    /**
+     * https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
+     * 
+     * 
+     * https://developer.mozilla.org/en-US/docs/Web/HTTP/Conditional_requests
+     * 
+     * @return
+     */
+    private String getETag(File file, String resource)
+    {
+        return String.valueOf((resource + file.lastModified()).hashCode());
     }
 }
