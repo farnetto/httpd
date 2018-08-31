@@ -168,6 +168,8 @@ public class Worker implements Runnable
             contentType = getContentType(f);
         }
 
+        long contentLength = f.length();
+
         // retrieve content
         char[] content = null;
         if (req.getMethod() == Method.GET)
@@ -179,8 +181,8 @@ public class Worker implements Runnable
             else
             {
                 // TODO handle large files
-                content = new char[(int) f.length()];
-                new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(content, 0, (int) f.length());
+                content = new char[(int) contentLength];
+                new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(content, 0, (int) contentLength);
             }
         }
 
@@ -192,7 +194,7 @@ public class Worker implements Runnable
         // out.write("ETag: \"3ab-512a724ea7e20\"\n");
         out.write("Accept-Ranges: bytes" + CRLF);
         out.write("Connection: close" + CRLF);
-        out.write(String.format("Content-Length: %d" + CRLF, content.length));
+        out.write(String.format("Content-Length: %d" + CRLF, contentLength));
         out.write("Vary: Accept-Encoding" + CRLF);
         out.write("Content-Type: " + contentType + CRLF);
         out.write(CRLF);

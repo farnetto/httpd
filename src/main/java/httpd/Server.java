@@ -3,6 +3,8 @@ package httpd;
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -26,6 +28,8 @@ public class Server
     }
 
     private final File docroot;
+
+    private final Map<String,String> eTags = new ConcurrentHashMap<>();
 
     /**
      * constructor
@@ -59,7 +63,7 @@ public class Server
                 }
                 catch (IOException e)
                 {
-                    // TODO Auto-generated catch block
+                    // TODO
                     e.printStackTrace();
                 }
             }
