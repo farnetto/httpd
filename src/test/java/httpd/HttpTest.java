@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -12,6 +13,7 @@ import java.io.OutputStreamWriter;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -34,7 +36,7 @@ public class HttpTest
         Thread t = new Thread(new Worker(docroot, new HashMap<String,String>(), s));
         t.start();
         BufferedWriter out = new BufferedWriter(new OutputStreamWriter(pipedOut));
-        BufferedReader in = new BufferedReader(new InputStreamReader(pipedIn));
+        BufferedReader in = new BufferedReader(new InputStreamReader(pipedIn, StandardCharsets.UTF_8));
         for (String requestLine : request)
         {
             out.write(requestLine);
@@ -49,14 +51,16 @@ public class HttpTest
         {
             response.add(responseLine);
         }
+        // TODO read the content as a byte array
         return response;
     }
 
     public Map<String,String> getHeaders(List<String> response)
     {
         Map<String,String> headers = new HashMap<>();
-        for (String s : response.subList(1, response.size()))
+        for (Object obj : response.subList(1, response.size()))
         {
+        	String s = (String) obj;
             if (s.equals(""))
             {
                 break;
@@ -69,19 +73,19 @@ public class HttpTest
 
     public String getContent(List<String> response)
     {
-        StringBuilder content = new StringBuilder();
-        boolean inHeaders = true;
-        for (String s : response)
-        {
-            if (!inHeaders)
-            {
-                content.append(s).append(Worker.CRLF);
-            }
-            if (s.equals(""))
-            {
-                inHeaders = false;
-            }
-        }
-        return content.toString();
+    	boolean inHeaders = true;
+    	StringBuilder content = new StringBuilder();
+    	for (String s : response)
+    	{
+    		if (!inHeaders)
+    		{
+    			content.append(s).append(Worker.CRLF);
+    		}
+    		if (s.equals(""))
+    		{
+    			inHeaders = false;
+    		}
+    	}
+    	return content.toString();
     }
 }

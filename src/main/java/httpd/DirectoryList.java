@@ -34,6 +34,7 @@ public class DirectoryList
         }
         sb.append("</ul>\r\n");
         sb.append("</body></html>\r\n");
+        System.out.println(sb);
         return sb.toString();
     }
 

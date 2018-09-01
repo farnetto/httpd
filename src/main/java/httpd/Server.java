@@ -28,6 +28,8 @@ public class Server
     }
 
     private final File docroot;
+    
+    private final int port;
 
     private final Map<String,String> eTags = new ConcurrentHashMap<>();
 
@@ -36,8 +38,9 @@ public class Server
      * 
      * @param docroot document root directory
      */
-    public Server(String docrootName)
+    public Server(int port, String docrootName)
     {
+    	this.port = port;
         this.docroot = new File(docrootName);
         if (!docroot.exists() || !docroot.isDirectory())
         {
@@ -47,12 +50,41 @@ public class Server
 
     public static void main(String[] args)
     {
-        new Server(".").start();
+    	// defaults
+    	int port = 80;
+    	String docroot = ".";
+    	if (args.length > 0)
+    	{
+    		try
+    		{
+    			port = Integer.parseInt(args[0]);
+    		}
+    		catch (NumberFormatException e)
+    		{
+    			LOGGER.log(Level.WARNING, String.format("Could not parse port %d", args[0]));
+    		}
+    		if (args.length > 1)
+    		{
+    			File d = new File(args[1]);
+    			if (!d.exists() || !d.isDirectory())
+    			{
+    				LOGGER.log(Level.SEVERE, String.format("docroot does not exist or is not a directory %s", args[1]));
+    				System.exit(1);
+    			}
+    			docroot = args[1];
+    		}
+    	}
+        new Server(port, docroot).start();
     }
 
+    public static void usage()
+    {
+    	System.out.println("Usage: Server [port [docroot]]");
+    }
     public void start()
     {
-        try (ServerSocket ss = new ServerSocket(8888))
+    	LOGGER.log(Level.INFO, String.format("Starting server on port %d with docroot %s", port, docroot));
+        try (ServerSocket ss = new ServerSocket(port))
         {
             LOGGER.log(Level.FINE, "listening on port " + ss.getLocalPort());
             while (true)
