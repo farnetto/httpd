@@ -126,42 +126,50 @@ public class Worker implements Runnable {
 	}
 
 	/**
-	 * @param req
+	 * @param request
 	 * @param writer
 	 * @param out
 	 * @throws IOException
 	 * @throws HttpError
 	 */
-	private void writeResponse(Request req, BufferedWriter writer, OutputStream out) throws IOException, HttpError {
-		String resource = req.getResource();
+	private void writeResponse(Request request, BufferedWriter writer, OutputStream out) throws IOException, HttpError {
+		String resource = request.getResource();
 
 		LOGGER.log(Level.FINE, "getting " + resource);
 
-		if (req.getMethod() != Method.GET && req.getMethod() != Method.HEAD) {
+		if (request.getMethod() != Method.GET && request.getMethod() != Method.HEAD) {
 			throw new HttpError(StatusCode.NOT_IMPLEMENTED);
 		}
 
 		// exists?
-		File f = new File(docroot, resource);
-		if (!f.exists()) {
+		File resourceFile = new File(docroot, resource);
+		if (!resourceFile.exists()) {
 			throw new HttpError(StatusCode.NOT_FOUND, resource);
 		}
 
 		// determine content type
 		String contentType = "";
 		long contentLength = -1L;
-		if (f.isDirectory()) {
+		if (resourceFile.isDirectory()) {
 			contentType = "text/html; charset=UTF-8";
 		} else {
-			contentType = getContentType(f);
-			contentLength = f.length();
+			contentType = getContentType(resourceFile);
+			contentLength = resourceFile.length();
 		}
 
+		String eTag = getETag(resourceFile, resource);
+		if (request.getHeaders().containsKey("If-Match"))
+		{
+			if (!request.getHeaders().get("If-Match").equals("\""+ eTag + "\""))
+			{
+				throw new HttpError(StatusCode.PRECONDITION_FAILED, resource);
+			}
+		}
 		// retrieve content
 		char[] textContent = null;
 		byte[] binaryContent = null;
-		if (req.getMethod() == Method.GET) {
-			if (f.isDirectory()) {
+		if (request.getMethod() == Method.GET) {
+			if (resourceFile.isDirectory()) {
 				textContent = new DirectoryList().list(docroot, resource).toCharArray();
 				contentLength = textContent.length;
 			} else {
@@ -169,21 +177,20 @@ public class Worker implements Runnable {
 				if (isText(contentType)) {
 					textContent = new char[(int) contentLength];
 					// TODO read using appropriate encoding
-					new InputStreamReader(new FileInputStream(f), StandardCharsets.UTF_8).read(textContent, 0,
+					new InputStreamReader(new FileInputStream(resourceFile), StandardCharsets.UTF_8).read(textContent, 0,
 							(int) contentLength);
 				} else {
 					binaryContent = new byte[(int) contentLength];
-					new FileInputStream(f).read(binaryContent);
+					new FileInputStream(resourceFile).read(binaryContent);
 				}
 			}
 		}
-
 		// everything ok, write response
 		writer.write("HTTP/1.1 200 OK" + CRLF);
 		writer.write("Date: " + now() + CRLF);
 		writer.write("Server: Farnetto " + CRLF);
-		writer.write("Last-Modified: " + getLastModified(f) + CRLF);
-		writer.write(String.format("ETag: \"%s\"" + CRLF, getETag(f, resource)));
+		writer.write("Last-Modified: " + getLastModified(resourceFile) + CRLF);
+		writer.write(String.format("ETag: \"%s\"" + CRLF, eTag));
 		writer.write("Accept-Ranges: bytes" + CRLF);
 		writer.write("Connection: close" + CRLF);
 		writer.write(String.format("Content-Length: %d" + CRLF, contentLength));
@@ -191,7 +198,7 @@ public class Worker implements Runnable {
 		writer.write("Content-Type: " + contentType + CRLF);
 		writer.write(CRLF);
 		writer.flush();
-		if (req.getMethod() == Method.GET) {
+		if (request.getMethod() == Method.GET) {
 			if (isText(contentType)) {
 				writer.write(textContent);
 				writer.flush();

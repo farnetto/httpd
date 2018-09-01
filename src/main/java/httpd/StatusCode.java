@@ -1,26 +1,23 @@
 package httpd;
 
-public enum StatusCode
-{
-    NOT_FOUND(404, "Not Found"), BAD_REQUEST(400, "Bad Request"), NOT_IMPLEMENTED(501, "Not Implemented");
+public enum StatusCode {
+	NOT_FOUND(404, "Not Found"), BAD_REQUEST(400, "Bad Request"), NOT_IMPLEMENTED(501,
+			"Not Implemented"), PRECONDITION_FAILED(412, "Precondition Failed");
 
-    private final int id;
+	private final int id;
 
-    private final String description;
+	private final String description;
 
-    private StatusCode(int id, String description)
-    {
-        this.id = id;
-        this.description = description;
-    }
+	private StatusCode(int id, String description) {
+		this.id = id;
+		this.description = description;
+	}
 
-    public int getId()
-    {
-        return id;
-    }
+	public int getId() {
+		return id;
+	}
 
-    public String getDescription()
-    {
-        return description;
-    }
+	public String getDescription() {
+		return description;
+	}
 }
