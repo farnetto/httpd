@@ -2,6 +2,7 @@ package httpd;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -29,11 +30,11 @@ public class HttpTest
         PipedOutputStream pipedOut = new PipedOutputStream();
         PipedOutputStream serverOut = new PipedOutputStream(pipedIn);
         PipedInputStream serverIn = new PipedInputStream(pipedOut);
-        Socket s = mock(Socket.class);
-        when(s.getInputStream()).thenReturn(serverIn);
-        when(s.getOutputStream()).thenReturn(serverOut);
+        Socket socket = mock(Socket.class);
+        when(socket.getInputStream()).thenReturn(serverIn);
+        when(socket.getOutputStream()).thenReturn(serverOut);
 
-        Thread t = new Thread(new Worker(docroot, new HashMap<String,String>(), s));
+        Thread t = new Thread(new Worker(docroot, socket));
         t.start();
         BufferedWriter out = new BufferedWriter(new OutputStreamWriter(pipedOut));
         BufferedReader in = new BufferedReader(new InputStreamReader(pipedIn, StandardCharsets.UTF_8));
@@ -44,14 +45,15 @@ public class HttpTest
         }
         out.write("\r\n");
         out.flush();
-        t.join(5000L);
         List<String> response = new ArrayList<>();
         String responseLine = null;
+        System.out.println("getting response...");
         while ((responseLine = in.readLine()) != null)
         {
             response.add(responseLine);
         }
         // TODO read the content as a byte array
+        t.join();
         return response;
     }
 

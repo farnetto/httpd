@@ -9,6 +9,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
@@ -18,60 +19,76 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
-import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import httpd.Request.Method;
 
 public class Worker implements Runnable {
+	
 	private static final Logger LOGGER = LogManager.getLogger(Worker.class.getName());
 
 	public static final String CRLF = "\r\n";
 
 	private final File docroot;
 
-	private final Socket s;
+	private final Socket socket;
+	
+	private static final int DEFAULT_TIMEOUT = 5_000;
+	
+	private static int currentTimeout = DEFAULT_TIMEOUT;
 
-	private final Map<String, String> eTags;
-
-	public Worker(File docroot, Map<String, String> eTags, Socket s) {
+	public Worker(File docroot, Socket socket) {
 		this.docroot = docroot;
-		this.s = s;
-		this.eTags = eTags;
+		this.socket = socket;
 	}
 
 	@Override
 	public void run() {
-		LOGGER.debug("accepted connection " + s.getInetAddress() + ":" + s.getPort());
-		try {
-			BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
-			OutputStream out = s.getOutputStream();
+		LOGGER.debug("accepted connection " + socket.getInetAddress() + ":" + socket.getPort());
+		try (OutputStream out = socket.getOutputStream()) {
+			BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
 			while (true) {
 				LOGGER.debug("listening for request...");
 				try {
+//					socket.setSoTimeout(currentTimeout);
 					Request req = readRequest(in);
 					if (req != null) {
 						writeResponse(req, writer, out);
 						writer.flush();
-					}
-					else
-					{
+					} else {
 						// client closed connection
 						break;
 					}
+					if (req.getHeaders().containsKey("Connection")) {
+						if ("close".equals(req.getHeaders().get("Connection"))) {
+							LOGGER.debug("client requested connection close");
+							break;
+						}
+						if ("keep-alive".equals(req.getHeaders().get(Header.CONNECTION.getText())))
+						{
+							// TODO timeout, max
+						}
+						else
+						{
+							currentTimeout = DEFAULT_TIMEOUT;
+						}
+					}
 				} catch (HttpError httpError) {
 					writeError(httpError, writer);
+					writer.flush();
+				} catch (SocketException se) {
+					LOGGER.debug("connection closed by client");
+					break;
 				}
 			}
 		} catch (IOException e) {
 			LOGGER.error("could not handle request", e);
 		} finally {
 			try {
-				s.close();
+				socket.close();
 			} catch (IOException e) {
 				LOGGER.debug("could not close socket", e);
 			}
@@ -93,9 +110,7 @@ public class Worker implements Runnable {
 		html.append(String.format("<title>%s %s</title>", httpError.getCode().getId(),
 				httpError.getCode().getDescription())).append(CRLF);
 		html.append("</head><body>").append(CRLF);
-		html.append("<h1>Not Found</h1>").append(CRLF);
-		html.append(String.format("<p>The requested URL %s was not found on this server.</p>", httpError.getContent()))
-				.append(CRLF);
+		html.append(String.format("<h1>%s</h1>", httpError.getCode().getDescription())).append(CRLF);
 		html.append("</body></html>").append(CRLF);
 
 		StringBuilder response = new StringBuilder();
@@ -122,7 +137,7 @@ public class Worker implements Runnable {
 		List<String> lines = new ArrayList<>();
 		String line = null;
 		while ((line = in.readLine()) != null) {
-			System.out.println("request line: " + line);
+			LOGGER.trace("request line: " + line);
 			lines.add(line);
 			if (line.trim().equals("")) {
 				break;
@@ -136,9 +151,14 @@ public class Worker implements Runnable {
 	}
 
 	/**
+	 * TODO method is too long, refactor
+	 * 
 	 * @param request
+	 *            the request object
 	 * @param writer
+	 *            for text
 	 * @param out
+	 *            for binary data
 	 * @throws IOException
 	 * @throws HttpError
 	 */
@@ -168,13 +188,32 @@ public class Worker implements Runnable {
 		}
 
 		String eTag = getETag(resourceFile, resource);
-		if (request.getHeaders().containsKey("If-Match"))
-		{
-			if (!request.getHeaders().get("If-Match").equals("\""+ eTag + "\""))
-			{
+		if (request.getHeaders().containsKey("If-Match")) {
+			if (!request.getHeaders().get("If-Match").equals("\"" + eTag + "\"")) {
 				throw new HttpError(StatusCode.PRECONDITION_FAILED, resource);
 			}
 		}
+
+		if (request.getHeaders().containsKey("If-None-Match")) {
+			String[] tags = request.getHeaders().get("If-None-Match").split(",\\w?");
+			for (String tag : tags) {
+				if (("\"" + eTag + "\"").equals(tag)) {
+					throw new HttpError(StatusCode.NOT_MODIFIED, resource);
+				}
+			}
+		}
+		
+		ZonedDateTime lastModified = getLastModified(resourceFile);
+		if (request.getHeaders().containsKey(Header.IF_MODIFIED_SINCE.getText()))
+		{
+			String value = request.getHeaders().get(Header.IF_MODIFIED_SINCE.getText());
+			ZonedDateTime ifModifiedSince = (ZonedDateTime) DateTimeFormatter.RFC_1123_DATE_TIME.parse(value);
+			if (!lastModified.isAfter(ifModifiedSince))
+			{
+				throw new HttpError(StatusCode.NOT_MODIFIED, resource);
+			}
+		}
+
 		// retrieve content
 		char[] textContent = null;
 		byte[] binaryContent = null;
@@ -187,8 +226,8 @@ public class Worker implements Runnable {
 				if (isText(contentType)) {
 					textContent = new char[(int) contentLength];
 					// TODO read using appropriate encoding
-					new InputStreamReader(new FileInputStream(resourceFile), StandardCharsets.UTF_8).read(textContent, 0,
-							(int) contentLength);
+					new InputStreamReader(new FileInputStream(resourceFile), StandardCharsets.UTF_8).read(textContent,
+							0, (int) contentLength);
 				} else {
 					binaryContent = new byte[(int) contentLength];
 					new FileInputStream(resourceFile).read(binaryContent);
@@ -199,7 +238,7 @@ public class Worker implements Runnable {
 		writer.write("HTTP/1.1 200 OK" + CRLF);
 		writer.write("Date: " + now() + CRLF);
 		writer.write("Server: Farnetto " + CRLF);
-		writer.write("Last-Modified: " + getLastModified(resourceFile) + CRLF);
+		writer.write("Last-Modified: " + DateTimeFormatter.RFC_1123_DATE_TIME.format(lastModified) + CRLF);
 		writer.write("Connection: keep-alive" + CRLF);
 		writer.write(String.format("ETag: \"%s\"" + CRLF, eTag));
 		writer.write("Accept-Ranges: bytes" + CRLF);
@@ -227,9 +266,8 @@ public class Worker implements Runnable {
 	 * @param f
 	 * @return
 	 */
-	private String getLastModified(File f) {
-		return DateTimeFormatter.RFC_1123_DATE_TIME
-				.format(ZonedDateTime.ofInstant(new Date(f.lastModified()).toInstant(), ZoneId.of("GMT")));
+	private ZonedDateTime getLastModified(File f) {
+		return ZonedDateTime.ofInstant(new Date(f.lastModified()).toInstant(), ZoneId.of("GMT"));
 	}
 
 	/**

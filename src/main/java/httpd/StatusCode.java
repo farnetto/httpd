@@ -2,7 +2,7 @@ package httpd;
 
 public enum StatusCode {
 	NOT_FOUND(404, "Not Found"), BAD_REQUEST(400, "Bad Request"), NOT_IMPLEMENTED(501,
-			"Not Implemented"), PRECONDITION_FAILED(412, "Precondition Failed");
+			"Not Implemented"), PRECONDITION_FAILED(412, "Precondition Failed"), NOT_MODIFIED(304, "Not Modified");
 
 	private final int id;
 
@@ -20,4 +20,5 @@ public enum StatusCode {
 	public String getDescription() {
 		return description;
 	}
+
 }

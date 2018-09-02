@@ -1,6 +1,12 @@
 package httpd;
 
+import org.junit.Test;
+
 public class BadRequestTest
 {
-    // TODO
+    @Test
+    public void ifModifiedSinceWithBadDate()
+    {
+    	// TODO
+    }
 }

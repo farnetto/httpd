@@ -18,8 +18,6 @@ public class Server
     
     private final int port;
 
-    private final Map<String,String> eTags = new ConcurrentHashMap<>();
-
     /**
      * constructor
      * 
@@ -71,14 +69,14 @@ public class Server
     public void start()
     {
     	LOGGER.info(String.format("Starting server on port %d with docroot %s", port, docroot));
-        try (ServerSocket ss = new ServerSocket(port))
+        try (ServerSocket serverSocket = new ServerSocket(port))
         {
-            LOGGER.debug("listening on port " + ss.getLocalPort());
+            LOGGER.debug("listening on port " + serverSocket.getLocalPort());
             while (true)
             {
                 try
                 {
-                    new Thread(new Worker(docroot, eTags, ss.accept())).start();
+                    new Thread(new Worker(docroot, serverSocket.accept())).start();
                 }
                 catch (IOException e)
                 {

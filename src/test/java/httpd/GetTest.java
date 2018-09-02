@@ -56,6 +56,7 @@ public class GetTest extends HttpTest {
 		request.add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
 		request.add("Accept-Language: en-us");
 		request.add("Accept-Encoding: gzip, deflate");
+		request.add("Connection: close");
 	}
 
 	@Test
