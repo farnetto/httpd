@@ -45,6 +45,10 @@ public class Request
         }
         method = Method.valueOf(requestLineTokens[0]);
         resource = requestLineTokens[1];
+        if (resource.contains("..") || resource.contains("\\"))
+        {
+        	throw new HttpError(StatusCode.BAD_REQUEST, resource);
+        }
         httpVersion = requestLineTokens[2];
         for (int i = 1; i < text.size(); i++) {
         	String line = text.get(i);

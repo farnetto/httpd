@@ -79,6 +79,7 @@ public class Worker implements Runnable {
 				} catch (HttpError httpError) {
 					writeError(httpError, writer);
 					writer.flush();
+					break;
 				} catch (SocketException se) {
 					LOGGER.debug("connection closed by client");
 					break;

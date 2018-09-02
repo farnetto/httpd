@@ -20,11 +20,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class HttpTest
+public class HttpdTest
 {
     protected final File docroot = new File("target/test-classes");
 
-    public List<String> getResponse(List<String> request) throws IOException, InterruptedException
+    public List<String> getResponse(List<String> request) throws IOException
     {
         PipedInputStream pipedIn = new PipedInputStream();
         PipedOutputStream pipedOut = new PipedOutputStream();
@@ -53,7 +53,6 @@ public class HttpTest
             response.add(responseLine);
         }
         // TODO read the content as a byte array
-        t.join();
         return response;
     }
 
@@ -90,4 +89,19 @@ public class HttpTest
     	}
     	return content.toString();
     }
+
+	protected List<String> getRequest(String resource) {
+		List<String> request = new ArrayList<>();
+		request.add(String.format("GET %s HTTP/1.1", resource));
+		return request;
+	}
+
+	protected void addStandardHeaders(List<String> request) {
+		request.add("User-Agent: Mozilla/4.0");
+		request.add("Host: junit");
+		request.add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+		request.add("Accept-Language: en-us");
+		request.add("Accept-Encoding: gzip, deflate");
+		request.add("Connection: close");
+	}
 }

@@ -5,13 +5,12 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import org.junit.Test;
 
-public class GetTest extends HttpTest {
+public class GetTest extends HttpdTest {
 	@Test
 	public void getTextFile() throws IOException, InterruptedException {
 		List<String> request = getRequest("/test.html");
@@ -27,13 +26,6 @@ public class GetTest extends HttpTest {
 		assertEquals(expectedLength, content.toString().length());
 	}
 	
-	private List<String> getRequest(String resource)
-	{
-		List<String> request = new ArrayList<>();
-		request.add(String.format("GET %s HTTP/1.1", resource));
-		return request;
-	}
-
 	@Test
 	public void getBinaryFile() throws IOException, InterruptedException
 	{
@@ -50,15 +42,6 @@ public class GetTest extends HttpTest {
 		
 	}
 	
-	private void addStandardHeaders(List<String> request) {
-		request.add("User-Agent: Mozilla/4.0");
-		request.add("Host: junit");
-		request.add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
-		request.add("Accept-Language: en-us");
-		request.add("Accept-Encoding: gzip, deflate");
-		request.add("Connection: close");
-	}
-
 	@Test
 	public void getDirectory() throws IOException, InterruptedException {
 		List<String> request = getRequest("/");
