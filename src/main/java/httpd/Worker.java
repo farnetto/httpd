@@ -19,13 +19,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import httpd.Request.Method;
 
 public class Worker implements Runnable {
-	private static final Logger LOGGER = Logger.getLogger(Worker.class.getName());
+	private static final Logger LOGGER = LogManager.getLogger(Worker.class.getName());
 
 	public static final String CRLF = "\r\n";
 
@@ -43,31 +45,38 @@ public class Worker implements Runnable {
 
 	@Override
 	public void run() {
+		LOGGER.debug("accepted connection " + s.getInetAddress() + ":" + s.getPort());
 		try {
-			LOGGER.log(Level.FINE, "accepted connection " + s.getInetAddress() + ":" + s.getPort());
 			BufferedReader in = new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
 			OutputStream out = s.getOutputStream();
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
-			try {
-				Request req = readRequest(in);
-				if (req != null) {
-					writeResponse(req, writer, out);
+			while (true) {
+				LOGGER.debug("listening for request...");
+				try {
+					Request req = readRequest(in);
+					if (req != null) {
+						writeResponse(req, writer, out);
+						writer.flush();
+					}
+					else
+					{
+						// client closed connection
+						break;
+					}
+				} catch (HttpError httpError) {
+					writeError(httpError, writer);
 				}
-			} catch (HttpError httpError) {
-				writeError(httpError, writer);
 			}
-			writer.flush();
-			writer.close();
 		} catch (IOException e) {
-			LOGGER.log(Level.SEVERE, "could not handle request", e);
+			LOGGER.error("could not handle request", e);
 		} finally {
 			try {
 				s.close();
 			} catch (IOException e) {
-				LOGGER.log(Level.FINE, "could not close socket", e);
+				LOGGER.debug("could not close socket", e);
 			}
 		}
-		LOGGER.log(Level.FINE, "finished handling");
+		LOGGER.debug("connection closed");
 	}
 
 	/**
@@ -76,7 +85,7 @@ public class Worker implements Runnable {
 	 * @throws IOException
 	 */
 	private void writeError(HttpError httpError, BufferedWriter out) throws IOException {
-		LOGGER.log(Level.FINE, "returning " + httpError);
+		LOGGER.debug("returning " + httpError);
 
 		StringBuilder html = new StringBuilder();
 		html.append("<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">").append(CRLF);
@@ -113,13 +122,14 @@ public class Worker implements Runnable {
 		List<String> lines = new ArrayList<>();
 		String line = null;
 		while ((line = in.readLine()) != null) {
+			System.out.println("request line: " + line);
 			lines.add(line);
 			if (line.trim().equals("")) {
 				break;
 			}
 		}
 		if (lines.isEmpty()) {
-			LOGGER.log(Level.WARNING, "request is empty");
+			LOGGER.warn("request is empty");
 			return null;
 		}
 		return new Request(lines);
@@ -135,7 +145,7 @@ public class Worker implements Runnable {
 	private void writeResponse(Request request, BufferedWriter writer, OutputStream out) throws IOException, HttpError {
 		String resource = request.getResource();
 
-		LOGGER.log(Level.FINE, "getting " + resource);
+		LOGGER.debug("getting " + resource);
 
 		if (request.getMethod() != Method.GET && request.getMethod() != Method.HEAD) {
 			throw new HttpError(StatusCode.NOT_IMPLEMENTED);
@@ -190,9 +200,9 @@ public class Worker implements Runnable {
 		writer.write("Date: " + now() + CRLF);
 		writer.write("Server: Farnetto " + CRLF);
 		writer.write("Last-Modified: " + getLastModified(resourceFile) + CRLF);
+		writer.write("Connection: keep-alive" + CRLF);
 		writer.write(String.format("ETag: \"%s\"" + CRLF, eTag));
 		writer.write("Accept-Ranges: bytes" + CRLF);
-		writer.write("Connection: close" + CRLF);
 		writer.write(String.format("Content-Length: %d" + CRLF, contentLength));
 		writer.write("Vary: Accept-Encoding" + CRLF);
 		writer.write("Content-Type: " + contentType + CRLF);
@@ -231,8 +241,8 @@ public class Worker implements Runnable {
 
 		String name = file.getName().toLowerCase();
 		String ct = Files.probeContentType(file.toPath());
-		if (LOGGER.isLoggable(Level.FINE)) {
-			LOGGER.log(Level.FINE, String.format("name=%s type=%s", name, ct));
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug(String.format("name=%s type=%s", name, ct));
 		}
 
 		if (ct != null) {

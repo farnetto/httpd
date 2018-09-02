@@ -5,27 +5,14 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.Logger;
+
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class Server
 {
-    private static final LogManager logManager = LogManager.getLogManager();
-
-    private static final Logger LOGGER = Logger.getLogger(Server.class.getName());
-
-    static
-    {
-        try
-        {
-            logManager.readConfiguration(Thread.currentThread().getContextClassLoader().getResourceAsStream("httpd/logging.properties"));
-        }
-        catch (IOException exception)
-        {
-            LOGGER.log(Level.SEVERE, "Error in loading configuration", exception);
-        }
-    }
+    private static final Logger LOGGER = LogManager.getLogger(Server.class);
 
     private final File docroot;
     
@@ -61,14 +48,14 @@ public class Server
     		}
     		catch (NumberFormatException e)
     		{
-    			LOGGER.log(Level.WARNING, String.format("Could not parse port %d", args[0]));
+    			LOGGER.warn(String.format("Could not parse port %d", args[0]));
     		}
     		if (args.length > 1)
     		{
     			File d = new File(args[1]);
     			if (!d.exists() || !d.isDirectory())
     			{
-    				LOGGER.log(Level.SEVERE, String.format("docroot does not exist or is not a directory %s", args[1]));
+    				LOGGER.error(String.format("docroot does not exist or is not a directory %s", args[1]));
     				System.exit(1);
     			}
     			docroot = args[1];
@@ -83,10 +70,10 @@ public class Server
     }
     public void start()
     {
-    	LOGGER.log(Level.INFO, String.format("Starting server on port %d with docroot %s", port, docroot));
+    	LOGGER.info(String.format("Starting server on port %d with docroot %s", port, docroot));
         try (ServerSocket ss = new ServerSocket(port))
         {
-            LOGGER.log(Level.FINE, "listening on port " + ss.getLocalPort());
+            LOGGER.debug("listening on port " + ss.getLocalPort());
             while (true)
             {
                 try
@@ -102,7 +89,7 @@ public class Server
         }
         catch (IOException e)
         {
-            LOGGER.log(Level.SEVERE, "could not start server socket", e);
+            LOGGER.error("could not start server socket", e);
         }
     }
 
