@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -208,7 +209,7 @@ public class Worker implements Runnable {
 		if (request.getHeaders().containsKey(Header.IF_MODIFIED_SINCE.getText()))
 		{
 			String value = request.getHeaders().get(Header.IF_MODIFIED_SINCE.getText());
-			ZonedDateTime ifModifiedSince = (ZonedDateTime) DateTimeFormatter.RFC_1123_DATE_TIME.parse(value);
+			ZonedDateTime ifModifiedSince = DateTimeFormatter.RFC_1123_DATE_TIME.parse(value, ZonedDateTime::from);
 			if (!lastModified.isAfter(ifModifiedSince))
 			{
 				throw new HttpError(StatusCode.NOT_MODIFIED, resource);
