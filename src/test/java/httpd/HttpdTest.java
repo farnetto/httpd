@@ -103,5 +103,6 @@ public class HttpdTest
 		request.add("Accept-Language: en-us");
 		request.add("Accept-Encoding: gzip, deflate");
 		request.add("Connection: close");
+		request.add("If-Modified-Since: Sat, 1 Sep 2018 21:15:19 GMT");
 	}
 }
