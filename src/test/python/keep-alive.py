@@ -1,6 +1,9 @@
 import unittest
 import http.client
 
+#
+# Tests the keep-alive functionality
+#
 class TestKeepAlive(unittest.TestCase):
 
     host = "localhost"
@@ -9,6 +12,7 @@ class TestKeepAlive(unittest.TestCase):
 
     def test_keep_alive(self):
         conn = http.client.HTTPConnection(self.host, self.port)
+        # get resource a few times to check if the connection stays open
         for i in range(8):
             print("request #" + str(i))
             conn.request("GET", self.resource)
@@ -29,6 +33,7 @@ class TestKeepAlive(unittest.TestCase):
             # correct
             pass
         except ConnectionAbortedError:
+            # also correct
             pass
 
 if __name__ == "__main__":
