@@ -1,5 +1,6 @@
 import unittest
 import http.client
+import time
 
 #
 # Tests the keep-alive functionality
@@ -35,6 +36,27 @@ class TestKeepAlive(unittest.TestCase):
         except ConnectionAbortedError:
             # also correct
             pass
+
+    def test_timeout(self):
+        conn = http.client.HTTPConnection(self.host, self.port)
+        conn.request("GET", self.resource, headers={"Connection":"keep-alive"})
+        response = conn.getresponse()
+        response.read()
+        self.assertEqual(response.status, 200)
+
+        # default timeout is 5 secs
+        time.sleep(6)
+
+        # the connection should have been closed by the server
+        conn.request("GET", self.resource)
+        try:
+            response = conn.getresponse()
+            self.fail("expected exception")
+        except ConnectionAbortedError:
+            # correct
+            pass
+    def test_max(self):
+        self.fail("not yet implemented")
 
 if __name__ == "__main__":
     unittest.main()

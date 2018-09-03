@@ -10,13 +10,13 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -27,18 +27,26 @@ import org.apache.logging.log4j.Logger;
 import httpd.Request.Method;
 
 public class Worker implements Runnable {
-	
+
 	private static final Logger LOGGER = LogManager.getLogger(Worker.class.getName());
 
 	public static final String CRLF = "\r\n";
 
+	/**
+	 * default value of max parameter of Keep-Alive header
+	 */
+	public static final int DEFAULT_MAX = 100;
+
 	private final File docroot;
 
 	private final Socket socket;
-	
-	private static final int DEFAULT_TIMEOUT = 5_000;
-	
-	private static int currentTimeout = DEFAULT_TIMEOUT;
+
+	/**
+	 * max parameter of Keep-Alive header
+	 */
+	private int max = DEFAULT_MAX;
+
+	private static final int SOCKET_TIMEOUT = 5_000;
 
 	public Worker(File docroot, Socket socket) {
 		this.docroot = docroot;
@@ -49,13 +57,16 @@ public class Worker implements Runnable {
 	public void run() {
 		LOGGER.debug("accepted connection " + socket.getInetAddress() + ":" + socket.getPort());
 		try (OutputStream out = socket.getOutputStream()) {
-			BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+			BufferedReader in = new BufferedReader(
+					new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
 			BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(out, StandardCharsets.UTF_8));
+			int requestCount = 0;
 			while (true) {
 				LOGGER.debug("listening for request...");
 				try {
-//					socket.setSoTimeout(currentTimeout);
+					socket.setSoTimeout(SOCKET_TIMEOUT);
 					Request req = readRequest(in);
+					requestCount++;
 					if (req != null) {
 						writeResponse(req, writer, out);
 						writer.flush();
@@ -63,19 +74,21 @@ public class Worker implements Runnable {
 						// client closed connection
 						break;
 					}
-					if (req.getHeaders().containsKey("Connection")) {
-						if ("close".equals(req.getHeaders().get("Connection"))) {
+					if (req.getHeaders().containsKey(Header.CONNECTION.getText())) {
+						if ("close".equals(req.getHeaders().get(Header.CONNECTION.getText()))) {
 							LOGGER.debug("client requested connection close");
 							break;
 						}
-						if ("keep-alive".equals(req.getHeaders().get(Header.CONNECTION.getText())))
-						{
+						if ("keep-alive".equals(req.getHeaders().get(Header.CONNECTION.getText()))) {
 							// TODO timeout, max
+							if (req.getHeaders().containsKey(Header.KEEP_ALIVE.getText())) {
+								max = parseMax(req.getHeaders().get(Header.KEEP_ALIVE));
+							}
 						}
-						else
-						{
-							currentTimeout = DEFAULT_TIMEOUT;
-						}
+					}
+					if (requestCount >= max) {
+						// close connection
+						break;
 					}
 				} catch (HttpError httpError) {
 					writeError(httpError, writer);
@@ -84,10 +97,13 @@ public class Worker implements Runnable {
 				} catch (SocketException se) {
 					LOGGER.debug("connection closed by client");
 					break;
+				} catch (SocketTimeoutException ste) {
+					LOGGER.debug("connection closed after timeout");
+					break;
 				}
 			}
 		} catch (IOException e) {
-			LOGGER.error("could not handle request", e);
+			LOGGER.warn("could not handle request, unexpected exception", e);
 		} finally {
 			try {
 				socket.close();
@@ -96,6 +112,16 @@ public class Worker implements Runnable {
 			}
 		}
 		LOGGER.debug("connection closed");
+	}
+
+	private int parseMax(String header) {
+		String[] tokens = header.split("\\s");
+		for (String token : tokens) {
+			if (token.startsWith("max=")) {
+				return Integer.parseInt(token.substring(4));
+			}
+		}
+		return DEFAULT_MAX;
 	}
 
 	/**
@@ -121,7 +147,7 @@ public class Worker implements Runnable {
 		response.append("Server: Farnetto" + CRLF);
 		response.append("Content-Type: text/html; charset=UTF-8" + CRLF);
 		response.append("Content-Length: " + html.length() + CRLF);
-		// response.append("Keep-Alive: timeout=15, max=100" + CRLF);
+		response.append("Keep-Alive: timeout=5, max=" + max + CRLF);
 		response.append("Connection: close" + CRLF);
 		response.append(CRLF);
 
@@ -204,14 +230,12 @@ public class Worker implements Runnable {
 				}
 			}
 		}
-		
+
 		ZonedDateTime lastModified = getLastModified(resourceFile);
-		if (request.getHeaders().containsKey(Header.IF_MODIFIED_SINCE.getText()))
-		{
+		if (request.getHeaders().containsKey(Header.IF_MODIFIED_SINCE.getText())) {
 			String value = request.getHeaders().get(Header.IF_MODIFIED_SINCE.getText());
 			ZonedDateTime ifModifiedSince = DateTimeFormatter.RFC_1123_DATE_TIME.parse(value, ZonedDateTime::from);
-			if (!lastModified.isAfter(ifModifiedSince))
-			{
+			if (!lastModified.isAfter(ifModifiedSince)) {
 				throw new HttpError(StatusCode.NOT_MODIFIED, resource);
 			}
 		}
