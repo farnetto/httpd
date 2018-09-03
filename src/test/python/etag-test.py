@@ -5,6 +5,7 @@ class TestETag(unittest.TestCase):
 
     host = "localhost"
     port = 80
+    resource = "/test-classes/test.html"
 
     def test_head(self):
         conn = http.client.HTTPConnection(self.host, self.port)
@@ -15,7 +16,7 @@ class TestETag(unittest.TestCase):
 
     def test_get(self):
         conn = http.client.HTTPConnection(self.host, self.port)
-        conn.request("GET", "/src/test/resources/test.html")
+        conn.request("GET", self.resource)
         response = conn.getresponse()
         self.assertEqual(response.status, 200)
         conn.close()
@@ -23,8 +24,7 @@ class TestETag(unittest.TestCase):
     def test_etag(self):
         # simple request returns eTag
         conn = http.client.HTTPConnection(self.host, self.port)
-        resource = "/src/test/resources/test.html"
-        conn.request("GET", resource)
+        conn.request("GET", self.resource)
         response = conn.getresponse()
         self.assertEqual(response.status, 200)
         conn.close()
@@ -33,7 +33,7 @@ class TestETag(unittest.TestCase):
         conn = http.client.HTTPConnection(self.host, self.port)
         etag = response.headers.get('eTag')
         headers = {"If-Match": etag}
-        conn.request("GET", resource, headers=headers)
+        conn.request("GET", self.resource, headers=headers)
         response = conn.getresponse()
         self.assertEqual(response.status, 200)
         conn.close()
@@ -41,7 +41,7 @@ class TestETag(unittest.TestCase):
         # request with missing If-Match eTag
         conn = http.client.HTTPConnection(self.host, self.port)
         headers = {'If-Match': '"9999"'}
-        conn.request("GET", resource, headers=headers)
+        conn.request("GET", self.resource, headers=headers)
         response = conn.getresponse()
         self.assertEqual(response.status, 412)
         conn.close()

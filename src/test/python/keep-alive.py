@@ -5,7 +5,7 @@ class TestKeepAlive(unittest.TestCase):
 
     host = "localhost"
     port = 80
-    resource = "/src/test/resources/test.html"
+    resource = "/test-classes/test.html"
 
     def test_keep_alive(self):
         conn = http.client.HTTPConnection(self.host, self.port)
