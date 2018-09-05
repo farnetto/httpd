@@ -196,7 +196,7 @@ public class Worker implements Runnable {
 		LOGGER.debug("getting " + resource);
 
 		if (request.getMethod() != Method.GET && request.getMethod() != Method.HEAD) {
-			throw new HttpError(StatusCode.NOT_IMPLEMENTED);
+			throw new HttpError(StatusCode.NOT_IMPLEMENTED, request.getMethod().toString());
 		}
 
 		// exists?

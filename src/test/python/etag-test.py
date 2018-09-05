@@ -57,6 +57,7 @@ class TestETag(unittest.TestCase):
         # TODO
         pass
 
+    # TODO gets ignored if used in combination with if-none-match
     def test_if_modified_since(self):
         # TODO
         pass
