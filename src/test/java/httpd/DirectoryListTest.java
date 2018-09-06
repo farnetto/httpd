@@ -6,11 +6,12 @@ import java.io.File;
 
 import org.junit.Test;
 
-public class DirectoryListTest
-{
+/**
+ * Tests the class DirectoryList.
+ */
+public class DirectoryListTest {
     @Test
-    public void simple()
-    {
+    public void simple() {
         String fName = "target";
         File dir = new File(fName);
         assertTrue(dir.exists());

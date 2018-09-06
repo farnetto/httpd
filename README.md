@@ -21,3 +21,15 @@ cd src/test/python
 python keep-alive.py
 python etag-test.py
 ```
+## Design Considerations
+
+Important Abstractions are implemented as separate classes: `Request`, `Header`, `StatusCode`, etc. `Response` class TBD
+
+Multithreaded: the `Server` class launches a new thread per connection. To allow for greater scaling and to protect against overload a thread pool could be built in future.
+
+Using the class `HttpError` an http status code can be returned on an error condition at any point in the code by throwing an exception, keeping error handling separate from normal application logic.
+ 
+The abstract `HttpdTest` with the mocked `Socket` and piped streams allows automated unit-testing requests and reponse types without starting the server or any changes to application code.
+
+
+

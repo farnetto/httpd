@@ -18,7 +18,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class HttpdTest
+/**
+ * Contains common and utility methods for concrete unit tests in subclasses.
+ */
+public abstract class HttpdTest
 {
     protected final File docroot = new File("target/test-classes");
 
@@ -59,7 +62,7 @@ public class HttpdTest
         Map<String,String> headers = new HashMap<>();
         for (Object obj : response.subList(1, response.size()))
         {
-        	String s = (String) obj;
+            String s = (String) obj;
             if (s.equals(""))
             {
                 break;
@@ -72,35 +75,37 @@ public class HttpdTest
 
     public String getContent(List<String> response)
     {
-    	boolean inHeaders = true;
-    	StringBuilder content = new StringBuilder();
-    	for (String s : response)
-    	{
-    		if (!inHeaders)
-    		{
-    			content.append(s).append(Worker.CRLF);
-    		}
-    		if (s.equals(""))
-    		{
-    			inHeaders = false;
-    		}
-    	}
-    	return content.toString();
+        boolean inHeaders = true;
+        StringBuilder content = new StringBuilder();
+        for (String s : response)
+        {
+            if (!inHeaders)
+            {
+                content.append(s).append(Worker.CRLF);
+            }
+            if (s.equals(""))
+            {
+                inHeaders = false;
+            }
+        }
+        return content.toString();
     }
 
-	protected List<String> getRequest(String resource) {
-		List<String> request = new ArrayList<>();
-		request.add(String.format("GET %s HTTP/1.1", resource));
-		return request;
-	}
+    protected List<String> getRequest(String resource)
+    {
+        List<String> request = new ArrayList<>();
+        request.add(String.format("GET %s HTTP/1.1", resource));
+        return request;
+    }
 
-	protected void addStandardHeaders(List<String> request) {
-		request.add("User-Agent: Mozilla/4.0");
-		request.add("Host: junit");
-		request.add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
-		request.add("Accept-Language: en-us");
-		request.add("Accept-Encoding: gzip, deflate");
-		request.add("Connection: close");
-		request.add("If-Modified-Since: Sat, 1 Sep 2018 21:15:19 GMT");
-	}
+    protected void addStandardHeaders(List<String> request)
+    {
+        request.add("User-Agent: Mozilla/4.0");
+        request.add("Host: junit");
+        request.add("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8");
+        request.add("Accept-Language: en-us");
+        request.add("Accept-Encoding: gzip, deflate");
+        request.add("Connection: close");
+        request.add("If-Modified-Since: Sat, 1 Sep 2018 21:15:19 GMT");
+    }
 }

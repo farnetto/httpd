@@ -2,11 +2,13 @@ package httpd;
 
 import org.junit.Test;
 
-public class BadRequestTest
-{
+/**
+ * Tests for various malformed requests.
+ */
+public class BadRequestTest extends HttpdTest {
+
     @Test
-    public void ifModifiedSinceWithBadDate()
-    {
-    	// TODO
+    public void ifModifiedSinceWithBadDate() {
+        // TODO
     }
 }
